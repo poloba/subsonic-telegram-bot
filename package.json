@@ -1,38 +1,32 @@
 {
-  "name": "telebot",
-  "version": "1.0.7",
-  "description": "Easy way to write Telegram bots.",
-  "main": "lib/telebot.js",
-  "engines": {
-    "node": ">= 6.0.0"
-  },
-  "dependencies": {
-    "request": "^2.72.0"
-  },
-  "devDependencies": {
-    "ava": "^0.15.0"
+  "name": "subsonic-telegram-bot",
+  "version": "1.1.0",
+  "description": "Interact with your subsonic server using a telegram bot",
+  "main": "subsonic.js",
+  "directories": {
+    "lib": "lib"
   },
   "scripts": {
-    "test": "./node_modules/.bin/ava test/index.js"
+    "up": "nodemon subssonic.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kosmodrey/telebot.git"
+    "url": "git+https://github.com/poloba/subsonic-telegram-bot.git"
   },
   "keywords": [
-    "bot",
-    "api",
-    "wrapper",
-    "telebot",
-    "telegram",
-    "telegram api",
-    "telegram bot",
-    "telegram bot api"
+    "javascript",
+    "node"
   ],
-  "author": "Kosmodrey <kosmodrey@yandex.ru>",
-  "license": "ISC",
+  "author": "Pol Escolar",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/kosmodrey/telebot/issues"
+    "url": "https://github.com/poloba/subsonic-telegram-bot/issues"
   },
-  "homepage": "https://github.com/kosmodrey/telebot"
+  "homepage": "https://github.com/poloba/subsonic-telegram-bot#readme",
+  "dependencies": {
+    "fs": "0.0.1-security",
+    "https": "^1.0.0",
+    "nodemon": "^1.18.8",
+    "telebot": "^1.2.6"
+  }
 }

@@ -1,122 +1,102 @@
-// Subsonic API documentation http://www.subsonic.org/pages/api.jsp
-'use strict';
-
-const TeleBot = require('./');
-const bot = new TeleBot('-YOUR_TELEGRAM_BOT_API_TOKEN-');// Required. Telegram Bot API token.
-
-const API_DOMAIN = 'http://YOUR_SERVER/rest/';// Required. Your url server.
-const API_USER = 'YOUR_USER';// Required. Your user for the API.
-const API_PASSWORD = 'YOUR_MD5';// Required. Generate your MD5 password with salt phrase.
-const API_PASSWORD_SALT = 'YOUR_MD5_SALT';// Required. Your salt phrase.
-const API_CONFIG = `.view?f=json&u=${API_USER}&t=${API_PASSWORD}&s=${API_PASSWORD_SALT}&v=1.14.0&c=TelegramBot`;
-const getAPI = (urlAPI, optQuery = '') => API_DOMAIN + urlAPI + API_CONFIG + optQuery;
-
 const request = require('request');
-const body = '';
+const https = require('https');
+const fs = require('fs');
+const TeleBot = require('telebot');
+
+const bot = new TeleBot({
+    token: 'bot_telegram_token',
+    usePlugins: ['askUser', 'commandButton'],
+});
+
+const API_DOMAIN = 'https://your_server/rest/';
+const API_USER = 'user';
+const API_PASSWORD = 'md5_hash';
+const API_PASSWORD_SALT = 'md5_hash_salt';
+const API_CONFIG = `?u=${API_USER}&t=${API_PASSWORD}&s=${API_PASSWORD_SALT}&v=1.15.0&c=TelegramBot&f=json`;
+
+const getAPI = (method, option = '') => API_DOMAIN + method + API_CONFIG + option;
 
 bot.on('/playing', msg => {
     const id = msg.chat.id;
 
-    request(getAPI('getNowPlaying'), function (error, response, body) {
+    request(getAPI('getNowPlaying'), (error, response, body) => {
         if (!error && response.statusCode == 200) {
             const obj = JSON.parse(body);
-            const getPlayers = obj['subsonic-response'].nowPlaying.entry;
+            const players = obj['subsonic-response'].nowPlaying.entry;
 
-            if(getPlayers != undefined) {
-                const numberPlayers = getPlayers.length
-                const arrayPlayers = [];
-
-                for(var i = 0; i < numberPlayers; i++){
-                    const getPlaying = getPlayers[i];
-
-                    const getUser = getPlaying.username;
-                    const getArtist = getPlaying.artist;
-                    const getAlbum = getPlaying.album;
-                    const getTitle = getPlaying.title;
-
-                    arrayPlayers.push(`\n\n🎶 ${getUser} is listening:\n    ${getArtist} "${getAlbum}":\n     - ${getTitle}`);
-                }
-                return bot.sendMessage(id, 'Connected users:' + arrayPlayers);
+            if (players != undefined) {
+                players.map(player => {
+                    const {username, artist, album, title} = player;
+                    bot.sendMessage(id, `🎶 ${username} is listening: ${artist} "${album}": ${title}`);
+                });
             } else {
-                var text = 'No users connected';
-                return bot.sendMessage(id, text);
-            }
-        }
-    })
-});
-
-
-bot.use(require('./modules/ask.js'));
-bot.on('/search', msg => {
-    const id = msg.from.id;
-    return bot.sendMessage(id, '¿What song are you looking?', { ask: 'allSongs' });
-});
-
-let arraySongsId = [];
-let arraySongsCover = [];
-let arraySongsTitle = [];
-
-bot.on('ask.allSongs', msg => {
-    const id = msg.from.id;
-    const allSongs = msg.text;
-    const songLimit = 50;
-
-    request(getAPI('search3', `&query=${allSongs}&songCount=${songLimit}`), function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            const obj = JSON.parse(body);
-            const getSong = obj['subsonic-response'].searchResult3.song;
-
-            if(getSong != undefined) {
-                var objLength = getSong.length;
-
-                if(objLength <= 1) {}
-                const arraySongs = [];
-                for(var i = 0; i < objLength; i++){
-                    const getSongs = getSong[i];
-
-                    const getSongsId = getSongs.id;
-                    const getSongsArtist = getSongs.artist;
-                    const getSongsAlbum = getSongs.album;
-                    const getSongsTitle = getSongs.title;
-                    const getSongsCover = getSongs.coverArt;
-
-                    arraySongs.push(`\n${i+1}: ${getSongsArtist} "${getSongsAlbum}" ${getSongsTitle}`);
-                    arraySongsId.push(getSongsId);
-                    arraySongsCover.push(getSongsCover);
-                    arraySongsTitle.push(getSongsTitle);
-                };
-                const resultText = `What of this songs are you looking?\n ${arraySongs}\n\nTell me the song number`;
-                return bot.sendMessage(id, resultText, { ask: 'songNumber' });
-            } else {
-                return bot.sendMessage(id, `No results with ${allSongs}, try with another search`, { ask: 'allSongs'});
+                return bot.sendMessage(id, 'Upsss, nobody connected');
             }
         }
     });
 });
 
-bot.on('ask.songNumber', msg => {
+bot.on('/search', msg => {
+    return bot.sendMessage(msg.from.id, 'What song are you looking?', {ask: 'query'});
+});
+
+bot.on('ask.query', msg => {
     const id = msg.from.id;
-    const songNumber = msg.text;
-    const coverSize = 600;
+    const query = msg.text;
+    const songsLimit = 30;
 
-    const getFile = getAPI('stream',`&id=${arraySongsId[songNumber-1]}&format=mp3`);
-    const getCover = getAPI('getCoverArt', `&size=${coverSize}&id=${arraySongsCover[songNumber-1]}`);
+    request(getAPI('search3', `&query=${query}&songCount=${songsLimit}`), (error, response, body) => {
+        if (!error && response.statusCode == 200) {
+            const obj = JSON.parse(body);
+            const songs = obj['subsonic-response'].searchResult3.song;
 
-    return [
-        bot.sendPhoto(id, getCover, {fileName: 'portada.jpg'}),
-        bot.sendAudio(id, getFile, {fileName: `${arraySongsTitle[songNumber-1]}.mp3`}),
-        bot.sendMessage(id, 'Here is the song'),
-        arraySongsId.length = 0,
-        arraySongsCover.length = 0,
-        arraySongsTitle.length = 0
-    ];
+            if (songs != undefined) {
+                const promise = songs.map(song => {
+                    const {id, artist, album, title} = song;
+                    return [
+                        bot.inlineButton(`${artist} "${album}" ${title}`, {
+                            callback: id,
+                        }),
+                    ];
+                });
+                const replyMarkup = bot.inlineKeyboard(promise);
+
+                Promise.all(promise).then(() => {
+                    return bot.sendMessage(
+                        id,
+                        'What of this songs are you looking? Choose the song and press the button',
+                        {replyMarkup}
+                    );
+                });
+            } else {
+                return bot.sendMessage(id, `No results with ${query}, try with another search`, {
+                    ask: 'query',
+                });
+            }
+        }
+    });
 });
 
+bot.on('callbackQuery', msg => {
+    const id = msg.from.id;
+    const idSong = msg.data;
+    const getCoverUrl = getAPI('getCoverArt', `&id=${idSong}&size=600`);
+    const getFileUrl = getAPI('stream', `&id=${idSong}&maxBitRate=192&format=mp3`);
 
-bot.on('/about', function(msg) {
-  let text = '😽 El bot vasilon del Puerto';
+    const fileSong = fs.createWriteStream(`tmp/${idSong}.mp3`);
+    const getFileSong = https.get(getFileUrl, response => {
+        bot.sendPhoto(id, getCoverUrl).then(() => bot.sendMessage(id, 'Uploading song...'));
 
-  return bot.sendMessage(msg.chat.id, text);
+        response.pipe(fileSong);
+        fileSong.on('finish', () => {
+            bot.sendAudio(id, fileSong.path)
+                .then(() => fs.unlinkSync(fileSong.path))
+                .catch(e => console.log(e));
+        });
+    });
+    return getFileSong;
 });
+
+bot.on('/about', msg => bot.sendMessage(msg.chat.id, '😽 A subsonic telegram bot by Pol Escolar'));
 
 bot.connect();
