@@ -1,6 +1,6 @@
 # Telegram bot for subsonic
 
-![Screenshot](./img/screenshot.png =320x)
+![Screenshot](./img/screenshot.png | width=320)
 
 Connect and interact with your subsonic server using a telegram bot, powered with node.js and telebot.
 
